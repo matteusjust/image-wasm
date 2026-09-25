@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Processador de Imagens — Rust/Wasm</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #EEF0F2;
+    --surface: #FFFFFF;
+    --surface-2: #E4E8EC;
+    --ink: #171B1F;
+    --ink-soft: #545E67;
+    --ink-faint: #838D96;
+    --border: #D3D9DE;
+    --border-strong: #B7C0C7;
+    --accent: #C4441F;
+    --accent-strong: #A8371A;
+    --accent-ink: #FFFFFF;
+    --accent-soft: #F3DBCE;
+    --good: #2C7A54;
+    --shadow: 0 1px 2px rgba(23,27,31,0.06), 0 8px 24px -12px rgba(23,27,31,0.18);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #15100E;
+      --surface: #201815;
+      --surface-2: #2A201C;
+      --ink: #F1EAE6;
+      --ink-soft: #BBA99E;
+      --ink-faint: #8A776C;
+      --border: #382B25;
+      --border-strong: #4A3830;
+      --accent: #F0703C;
+      --accent-strong: #FF8752;
+      --accent-ink: #15100E;
+      --accent-soft: #3D2618;
+      --good: #4FBE8C;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 12px 32px -16px rgba(0,0,0,0.6);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #15100E;
+    --surface: #201815;
+    --surface-2: #2A201C;
+    --ink: #F1EAE6;
+    --ink-soft: #BBA99E;
+    --ink-faint: #8A776C;
+    --border: #382B25;
+    --border-strong: #4A3830;
+    --accent: #F0703C;
+    --accent-strong: #FF8752;
+    --accent-ink: #15100E;
+    --accent-soft: #3D2618;
+    --good: #4FBE8C;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 12px 32px -16px rgba(0,0,0,0.6);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3 { font-family: 'IBM Plex Sans Condensed', 'IBM Plex Sans', sans-serif; margin: 0; }
+  p { margin: 0; }
+  .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+  code { font-family: 'IBM Plex Mono', ui-monospace, monospace; background: var(--surface-2); padding: 0.1em 0.4em; border-radius: 4px; font-size: 0.9em; }
+  button { font-family: inherit; }
+  input:focus-visible, button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .topbar { border-bottom: 1px solid var(--border); background: var(--surface); }
+  .topbar-inner {
+    max-width: 1240px; margin: 0 auto; padding: 22px 28px;
+    display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap;
+  }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .brand-mark {
+    width: 42px; height: 42px; border-radius: 9px;
+    background: var(--accent); color: var(--accent-ink);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 15px; flex-shrink: 0;
+  }
+  .brand-text h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+  .brand-text p { color: var(--ink-soft); font-size: 13.5px; margin-top: 3px; max-width: 50ch; }
+  .topbar-meta {
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--ink-faint); white-space: nowrap; padding-bottom: 3px;
+  }
+
+  .banner {
+    max-width: 1240px; margin: 18px auto 0; padding: 0 28px;
+  }
+  .banner-inner {
+    display: flex; align-items: flex-start; gap: 10px;
+    background: var(--accent-soft); border: 1px solid var(--border); border-radius: 10px;
+    padding: 11px 14px; font-size: 12.5px; color: var(--ink-soft); line-height: 1.55;
+  }
+  .banner-inner strong { color: var(--ink); }
+
+  .shell {
+    max-width: 1240px; margin: 0 auto; padding: 20px 28px 8px;
+    display: grid; grid-template-columns: 296px 1fr; gap: 22px; align-items: start;
+  }
+  @media (max-width: 880px) { .shell { grid-template-columns: 1fr; } }
+
+  .rail { display: flex; flex-direction: column; gap: 16px; position: sticky; top: 16px; }
+  @media (max-width: 880px) { .rail { position: static; } }
+
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; box-shadow: var(--shadow); }
+  .panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-faint); font-weight: 600; margin-bottom: 12px; }
+
+  .dropzone {
+    display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center;
+    border: 1.5px dashed var(--border-strong); border-radius: 10px; padding: 20px 14px; cursor: pointer; background: var(--bg);
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .dropzone:hover, .dropzone.drag-over { border-color: var(--accent); background: var(--accent-soft); }
+  .dz-icon { font-size: 20px; color: var(--accent); }
+  .dz-text { font-size: 13px; font-weight: 500; }
+  .dz-sub { font-size: 11.5px; color: var(--ink-faint); }
+
+  .regen-row { margin-top: 10px; display: flex; }
+  .ghost-btn {
+    width: 100%; background: transparent; border: 1px solid var(--border); color: var(--ink-soft);
+    font-size: 12px; font-weight: 500; padding: 8px 10px; border-radius: 8px; cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+  .ghost-btn:hover { border-color: var(--border-strong); color: var(--ink); }
+
+  .gallery { margin-top: 12px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .thumb { aspect-ratio: 1; border-radius: 7px; border: 2px solid transparent; padding: 0; overflow: hidden; cursor: pointer; background: var(--surface-2); position: relative; }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .thumb.active { border-color: var(--accent); }
+  .thumb .thumb-tag { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(20,23,27,0.72); color: #fff; font-size: 8.5px; padding: 2px 4px; text-align: center; font-family: 'IBM Plex Mono', monospace; }
+
+  .field { margin-bottom: 14px; }
+  .field:last-child { margin-bottom: 0; }
+  .field label { display: block; font-size: 12.5px; font-weight: 500; margin-bottom: 7px; }
+  .field-row { display: flex; align-items: center; gap: 10px; }
+  .field-row input[type="range"] { flex: 1; accent-color: var(--accent); }
+  .field-row output { font-size: 12px; color: var(--ink-soft); min-width: 64px; text-align: right; }
+
+  .run-btn {
+    background: var(--accent); color: var(--accent-ink); border: none; font-size: 14.5px; font-weight: 600;
+    padding: 13px 16px; border-radius: 10px; cursor: pointer; box-shadow: var(--shadow);
+    transition: background 0.15s ease, transform 0.1s ease;
+  }
+  .run-btn:hover { background: var(--accent-strong); }
+  .run-btn:active { transform: translateY(1px); }
+  .run-btn:disabled { opacity: 0.6; cursor: progress; }
+
+  .rail-note { font-size: 12px; color: var(--ink-faint); line-height: 1.5; padding: 0 2px; }
+  .rail-note.busy { color: var(--accent); }
+  .rail-note.error { color: #C0392B; }
+  .rail-note .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: currentColor; margin-right: 6px; vertical-align: middle; }
+  @media (prefers-reduced-motion: no-preference) { .rail-note.busy .dot { animation: pulse 1s ease-in-out infinite; } }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+  .stage { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+
+  .init-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; }
+  .init-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px;
+    box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 4px;
+  }
+  .init-card .k { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-faint); font-weight: 600; }
+  .init-card .v { font-family: 'IBM Plex Mono', monospace; font-size: 22px; font-weight: 600; color: var(--ink); }
+  .init-card .v .unit { font-size: 13px; color: var(--ink-faint); font-weight: 400; margin-left: 3px; }
+  .init-card .sub { font-size: 11.5px; color: var(--ink-faint); }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); display: flex; flex-direction: column; }
+  .card-head { padding: 11px 13px 9px; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--border); }
+  .card-head h3 { font-size: 13.5px; font-weight: 600; }
+  .card-head .step-num { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--ink-faint); }
+  .card-canvas-wrap {
+    background:
+      linear-gradient(45deg, var(--surface-2) 25%, transparent 25%) 0 0 / 16px 16px,
+      linear-gradient(-45deg, var(--surface-2) 25%, transparent 25%) 0 0 / 16px 16px,
+      linear-gradient(45deg, transparent 75%, var(--surface-2) 75%) 0 0 / 16px 16px,
+      linear-gradient(-45deg, transparent 75%, var(--surface-2) 75%) 0 0 / 16px 16px;
+    background-color: var(--bg);
+    display: flex; align-items: center; justify-content: center; min-height: 150px; padding: 10px;
+  }
+  .card-canvas-wrap canvas { max-width: 100%; max-height: 220px; display: block; border-radius: 3px; }
+  .card-canvas-wrap .placeholder { font-size: 12px; color: var(--ink-faint); text-align: center; padding: 20px 10px; }
+  .card-foot { padding: 9px 13px; display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; color: var(--ink-soft); border-top: 1px solid var(--border); background: var(--surface-2); }
+  .time-badge { font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: var(--accent); font-size: 12px; }
+  .time-badge.idle { color: var(--ink-faint); font-weight: 400; }
+
+  .results-table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 16px 6px; box-shadow: var(--shadow); overflow-x: auto; }
+  .results-table-wrap h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-faint); font-weight: 600; margin-bottom: 12px; }
+  table.results-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 520px; }
+  .results-table th, .results-table td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); }
+  .results-table th { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-faint); font-weight: 600; }
+  .results-table td.num { font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums; }
+  .results-table tbody tr:last-child td { border-bottom: none; }
+  .results-table .empty-row td { color: var(--ink-faint); text-align: center; padding: 22px 10px; }
+  .algo-name { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+  .algo-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  .foot { max-width: 1240px; margin: 6px auto 32px; padding: 0 28px; font-size: 12px; color: var(--ink-faint); line-height: 1.6; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="brand-mark">RS</span>
+        <div class="brand-text">
+          <h1>Processador de Imagens</h1>
+          <p>Rust compilado para WebAssembly — escala de cinza, desfoque gaussiano e detecção de bordas (Sobel), com medição de tempo por algoritmo e overhead de inicialização do módulo.</p>
+        </div>
+      </div>
+      <div class="topbar-meta">TCC · Rust/WASM vs. JS · protótipo do lado Wasm</div>
+    </div>
+  </header>
+
+  <div class="banner">
+    <div class="banner-inner">
+      <span>⚠</span>
+      <span><strong>Este arquivo precisa ser servido por um servidor local</strong> (não abra por <code>file://</code>) e precisa do módulo compilado em <code>./pkg/</code>. Veja o <code>README.md</code> incluído para os passos de build com <code>wasm-pack</code>.</span>
+    </div>
+  </div>
+
+  <main class="shell">
+    <aside class="rail">
+      <section class="panel">
+        <h2>Imagem de entrada</h2>
+        <label class="dropzone" id="dropzone" tabindex="0">
+          <input type="file" id="fileInput" accept="image/*" multiple hidden>
+          <span class="dz-icon">⇪</span>
+          <span class="dz-text">Arraste uma imagem ou clique para enviar</span>
+          <span class="dz-sub">PNG, JPG ou WEBP — múltiplos arquivos aceitos</span>
+        </label>
+        <div class="regen-row">
+          <button class="ghost-btn" id="regenBtn" type="button">Gerar novo padrão de teste</button>
+        </div>
+        <div class="gallery" id="gallery"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Parâmetros</h2>
+        <div class="field">
+          <label for="sigmaRange">Desfoque gaussiano — sigma (σ)</label>
+          <div class="field-row">
+            <input type="range" id="sigmaRange" min="0.5" max="6" step="0.1" value="2">
+            <output class="mono" id="sigmaValue">2.0</output>
+          </div>
+        </div>
+        <div class="field">
+          <label for="thresholdRange">Sobel — limiar de binarização</label>
+          <div class="field-row">
+            <input type="range" id="thresholdRange" min="0" max="255" step="1" value="0">
+            <output class="mono" id="thresholdValue">0 (desativado)</output>
+          </div>
+        </div>
+        <div class="field">
+          <label for="runsRange">Execuções por algoritmo (benchmark)</label>
+          <div class="field-row">
+            <input type="range" id="runsRange" min="1" max="30" step="1" value="10">
+            <output class="mono" id="runsValue">10</output>
+          </div>
+        </div>
+      </section>
+
+      <button class="run-btn" id="runBtn" type="button" disabled>Carregando módulo Wasm…</button>
+      <p class="rail-note" id="statusNote"><span class="dot"></span>Inicializando o módulo WebAssembly…</p>
+    </aside>
+
+    <section class="stage">
+      <div class="init-row">
+        <div class="init-card">
+          <span class="k">Overhead de inicialização</span>
+          <span class="v" id="initTime">—<span class="unit">ms</span></span>
+          <span class="sub">fetch + instanciação + <code>init()</code> do módulo .wasm</span>
+        </div>
+        <div class="init-card">
+          <span class="k">Módulo carregado</span>
+          <span class="v" id="moduleInfo" style="font-size:14px;">—</span>
+          <span class="sub" id="moduleStatus">aguardando…</span>
+        </div>
+      </div>
+
+      <div class="grid" id="resultsGrid"></div>
+
+      <div class="results-table-wrap">
+        <h2>Resultados do benchmark</h2>
+        <table class="results-table" id="resultsTable">
+          <thead>
+            <tr>
+              <th>Algoritmo</th>
+              <th>Média (ms)</th>
+              <th>Mín (ms)</th>
+              <th>Máx (ms)</th>
+              <th>Desvio padrão (ms)</th>
+              <th>Execuções</th>
+            </tr>
+          </thead>
+          <tbody id="resultsTableBody">
+            <tr class="empty-row"><td colspan="6">Clique em “Processar imagem” para medir os três algoritmos.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <p>Cada algoritmo é implementado em Rust (<code>src/lib.rs</code>) e exportado via <code>wasm-bindgen</code>. Os pixels são escritos uma única vez na memória linear do módulo Wasm (funções <code>*_ptr</code> + <code>alloc</code>/<code>dealloc</code>), sem cópia adicional a cada chamada — só o algoritmo em si entra no tempo medido. O tempo de cada chamada é medido do lado JavaScript com <code>performance.now()</code>, em N execuções consecutivas sobre a mesma entrada — mesmo protocolo usado na versão JavaScript pura, para permitir a comparação direta descrita na metodologia do TCC. Imagens grandes são redimensionadas (lado maior ≤ 1600&nbsp;px) para manter a demonstração responsiva no navegador.</p>
+  </footer>
+</div>
+
+<script type="module" src="script.js"></script>
+</body>
+</html>

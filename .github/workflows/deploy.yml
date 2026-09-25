@@ -1,0 +1,58 @@
+name: Build e deploy no GitHub Pages
+
+# Roda a cada push na branch principal: compila o módulo Rust -> Wasm com
+# wasm-pack e publica index.html + script.js + pkg/ no GitHub Pages.
+# Não é preciso commitar a pasta pkg/ (fica no .gitignore) — o build
+# acontece aqui, no runner do GitHub, a cada push.
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: Adicionar target wasm32-unknown-unknown
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Instalar wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Compilar o módulo Wasm (release)
+        run: wasm-pack build --target web
+
+      - name: Montar a pasta de publicação
+        run: |
+          mkdir -p public/pkg
+          cp index.html script.js public/
+          cp pkg/*.js pkg/*.wasm public/pkg/
+
+      - name: Enviar artefato para o Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publicar no GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,25 @@
+[package]
+name = "image-wasm"
+version = "0.1.0"
+edition = "2021"
+description = "Processamento de imagens (escala de cinza, desfoque gaussiano, Sobel) compilado para WebAssembly — contraparte Rust do benchmark do TCC."
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wasm-bindgen = "0.2.100"
+
+# Painel de otimização para o binário .wasm final (ver seção 2.3.1 do TCC).
+# opt-level = 3 prioriza velocidade de execução — é o que queremos para o
+# benchmark de desempenho. Se quiser reportar o tamanho mínimo do binário
+# como métrica à parte (também discutido na seção 2.3.1), troque para
+# opt-level = "z" e recompile numa build separada só para essa medição —
+# não use "z" para os testes de tempo de processamento, pois essa opção
+# deliberadamente sacrifica velocidade para reduzir o tamanho do arquivo.
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
