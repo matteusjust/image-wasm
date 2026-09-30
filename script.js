@@ -4,7 +4,7 @@
     module_info,
   } from './pkg/image_wasm.js';
 
-  const MAX_DIM = 1600;
+  const MAX_DIM = 4096;
 
   const els = {
     dropzone: document.getElementById('dropzone'),
@@ -323,7 +323,6 @@
 
   els.runBtn.addEventListener('click', runPipeline);
 
-  // ---------- Init ----------
   buildGrid();
   addImage(generateSampleImage(640, 480, 42), 'Imagem de exemplo (gerada)', 640, 480);
 
