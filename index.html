@@ -310,9 +310,6 @@
     </section>
   </main>
 
-  <footer class="foot">
-    <p>Cada algoritmo é implementado em Rust (<code>src/lib.rs</code>) e exportado via <code>wasm-bindgen</code>. Os pixels são escritos uma única vez na memória linear do módulo Wasm (funções <code>*_ptr</code> + <code>alloc</code>/<code>dealloc</code>), sem cópia adicional a cada chamada — só o algoritmo em si entra no tempo medido. O tempo de cada chamada é medido do lado JavaScript com <code>performance.now()</code>, em N execuções consecutivas sobre a mesma entrada — mesmo protocolo usado na versão JavaScript pura, para permitir a comparação direta descrita na metodologia do TCC. Imagens grandes são redimensionadas (lado maior ≤ 1600&nbsp;px) para manter a demonstração responsiva no navegador.</p>
-  </footer>
 </div>
 
 <script type="module" src="script.js"></script>
